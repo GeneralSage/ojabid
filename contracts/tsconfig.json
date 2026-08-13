@@ -7,7 +7,7 @@
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
-    "lib": ["es2022"], // get error cause (ErrorOptions)
+    "lib": ["es2022", "dom"], // DOM avoids ambient web-type failures in a shared workspace.
     "module": "commonjs",
     "moduleResolution": "node",
     "noImplicitAny": true,

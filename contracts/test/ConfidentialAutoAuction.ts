@@ -5,49 +5,78 @@ import { FhevmType } from "@fhevm/hardhat-plugin";
 import { ConfidentialAutoAuction, ConfidentialAutoAuction__factory } from "../types";
 
 describe("ConfidentialAutoAuction", function () {
-  let organiser: HardhatEthersSigner;
+  let _organiser: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
+  let outsider: HardhatEthersSigner;
   let auction: ConfidentialAutoAuction;
   let auctionAddress: string;
   let auctionId: bigint;
 
-  async function future(seconds: number) {
+  async function advance(seconds: number) {
     await ethers.provider.send("evm_increaseTime", [seconds]);
     await ethers.provider.send("evm_mine", []);
   }
 
+  async function encryptedBid(dealer: HardhatEthersSigner, amountInKobo: number) {
+    return fhevm.createEncryptedInput(auctionAddress, dealer.address).add64(amountInKobo).encrypt();
+  }
+
+  async function submit(dealer: HardhatEthersSigner, amountInKobo: number) {
+    const encrypted = await encryptedBid(dealer, amountInKobo);
+    return auction.connect(dealer).submitBid(auctionId, encrypted.handles[0], encrypted.inputProof);
+  }
+
+  async function resolveAndSettle(caller: HardhatEthersSigner = outsider) {
+    const resolutionTx = await auction.connect(caller).beginResolution(auctionId);
+    const resolutionReceipt = await resolutionTx.wait();
+    const resolution = resolutionReceipt!.logs
+      .map((log) => {
+        try {
+          return auction.interface.parseLog(log);
+        } catch {
+          return null;
+        }
+      })
+      .find((event) => event?.name === "ResultReady");
+
+    expect(resolution).to.not.equal(undefined);
+    const decrypted = await fhevm.publicDecrypt([
+      resolution!.args.encryptedWinningBid,
+      resolution!.args.encryptedWinner,
+    ]);
+    await auction.connect(caller).settleResult(auctionId, decrypted.abiEncodedClearValues, decrypted.decryptionProof);
+  }
+
   beforeEach(async function () {
     if (!fhevm.isMock) this.skip();
-    [organiser, alice, bob] = await ethers.getSigners();
+    [_organiser, alice, bob, outsider] = await ethers.getSigners();
     const factory = (await ethers.getContractFactory("ConfidentialAutoAuction")) as ConfidentialAutoAuction__factory;
     auction = await factory.deploy();
     await auction.waitForDeployment();
     auctionAddress = await auction.getAddress();
 
     const now = (await ethers.provider.getBlock("latest"))!.timestamp;
-    const tx = await auction.createAuction(now + 10, now + 100, 1_000, 0);
-    const receipt = await tx.wait();
+    // 1,000 kobo = ₦10. All contract money values are integer kobo.
+    await auction.createAuction(now + 10, now + 100, 1_000, 0);
     auctionId = 0n;
-    expect(receipt).to.not.equal(null);
     await auction.approveBidder(auctionId, alice.address);
     await auction.approveBidder(auctionId, bob.address);
-    await future(11);
-    await auction.openAuction(auctionId);
+    await advance(11);
+    await auction.connect(outsider).openAuction(auctionId);
   });
 
-  it("hosts multiple lots and keeps the submitted bid encrypted", async function () {
-    expect(await auction.auctionCount()).to.equal(1n);
+  it("hosts multiple lots and exposes only public lot rules", async function () {
     const now = (await ethers.provider.getBlock("latest"))!.timestamp;
-    await auction.createAuction(now + 20, now + 120, 2_000, 0);
+    await auction.createAuction(now + 20, now + 120, 2_000, 3_000);
     expect(await auction.auctionCount()).to.equal(2n);
+    const lot = await auction.getAuction(auctionId);
+    expect(lot.minimumBid).to.equal(1_000);
+    expect(lot.bidderCount).to.equal(0);
   });
 
-  it("accepts encrypted bids and never exposes the plaintext in the event", async function () {
-    const encrypted = await fhevm.createEncryptedInput(auctionAddress, alice.address).add64(2500).encrypt();
-    const tx = await auction.connect(alice).submitBid(auctionId, encrypted.handles[0], encrypted.inputProof);
-    const receipt = await tx.wait();
-    expect(receipt).to.not.equal(null);
+  it("keeps a submitted maximum bid encrypted and grants only its dealer access", async function () {
+    await submit(alice, 250_000);
 
     const clearBid = await fhevm.userDecryptEuint(
       FhevmType.euint64,
@@ -55,47 +84,100 @@ describe("ConfidentialAutoAuction", function () {
       auctionAddress,
       alice,
     );
-    expect(clearBid).to.equal(2500);
-    expect((await auction.getAuction(auctionId))[5]).to.equal(1);
-  });
-
-  it("rejects unapproved bidders", async function () {
-    const [, , , stranger] = await ethers.getSigners();
-    const encrypted = await fhevm.createEncryptedInput(auctionAddress, stranger.address).add64(2500).encrypt();
-    await expect(
-      auction.connect(stranger).submitBid(auctionId, encrypted.handles[0], encrypted.inputProof),
-    ).to.be.revertedWithCustomError(auction, "NotApprovedBidder");
-  });
-
-  it("keeps winner identity encrypted until resolution begins", async function () {
-    const encrypted = await fhevm.createEncryptedInput(auctionAddress, alice.address).add64(2500).encrypt();
-    await auction.connect(alice).submitBid(auctionId, encrypted.handles[0], encrypted.inputProof);
-    await future(100);
-    await auction.closeAuction(auctionId);
-    await auction.beginResolution(auctionId);
-    expect((await auction.getAuction(auctionId))[6]).to.equal(3); // Resolving
-    const result = await auction.getPublicResult(auctionId);
-    expect(result[3]).to.equal(false);
-  });
-
-  it("supports encrypted bids from multiple dealers without publishing a ranking", async function () {
-    const aliceBid = await fhevm.createEncryptedInput(auctionAddress, alice.address).add64(2500).encrypt();
-    const bobBid = await fhevm.createEncryptedInput(auctionAddress, bob.address).add64(4200).encrypt();
-    await auction.connect(alice).submitBid(auctionId, aliceBid.handles[0], aliceBid.inputProof);
-    await auction.connect(bob).submitBid(auctionId, bobBid.handles[0], bobBid.inputProof);
-
-    await future(100);
-    await auction.closeAuction(auctionId);
-    await auction.beginResolution(auctionId);
-
-    const encryptedBobBid = await auction.connect(bob).getBid(auctionId, bob.address);
-    const clearBobBid = await fhevm.userDecryptEuint(
-      FhevmType.euint64,
-      encryptedBobBid,
-      auctionAddress,
-      bob,
+    expect(clearBid).to.equal(250_000);
+    await expect(auction.connect(bob).getBid(auctionId, alice.address)).to.be.revertedWithCustomError(
+      auction,
+      "NotApprovedBidder",
     );
-    expect(clearBobBid).to.equal(4200);
-    expect((await auction.getAuction(auctionId))[5]).to.equal(2);
+  });
+
+  it("does not publish a bidder identity or plaintext value in BidSubmitted", async function () {
+    const tx = await submit(alice, 250_000);
+    const receipt = await tx.wait();
+    const bidEvent = receipt!.logs
+      .map((log) => {
+        try {
+          return auction.interface.parseLog(log);
+        } catch {
+          return null;
+        }
+      })
+      .find((event) => event?.name === "BidSubmitted");
+
+    expect(bidEvent!.args).to.not.have.property("bidder");
+    expect(bidEvent!.args.encryptedBid).to.not.equal(250_000);
+    expect((await auction.getAuction(auctionId)).bidderCount).to.equal(1);
+  });
+
+  it("rejects unapproved bidders, second bids, late approval and active-auction cancellation", async function () {
+    const strangerInput = await encryptedBid(outsider, 250_000);
+    await expect(
+      auction.connect(outsider).submitBid(auctionId, strangerInput.handles[0], strangerInput.inputProof),
+    ).to.be.revertedWithCustomError(auction, "NotApprovedBidder");
+
+    await expect(auction.approveBidder(auctionId, outsider.address)).to.be.revertedWithCustomError(
+      auction,
+      "InvalidStatus",
+    );
+    await expect(auction.cancelAuction(auctionId)).to.be.revertedWithCustomError(auction, "InvalidStatus");
+
+    await submit(alice, 250_000);
+    const secondBid = await encryptedBid(alice, 300_000);
+    await expect(
+      auction.connect(alice).submitBid(auctionId, secondBid.handles[0], secondBid.inputProof),
+    ).to.be.revertedWithCustomError(auction, "AlreadyBid");
+  });
+
+  it("does not let an invalid first offer become the winner", async function () {
+    await submit(alice, 999); // below the 1,000-kobo opening rule
+    await submit(bob, 250_000);
+    await advance(100);
+    await auction.connect(outsider).closeAuction(auctionId);
+    await resolveAndSettle();
+
+    const result = await auction.getPublicResult(auctionId);
+    expect(result.winner).to.equal(bob.address);
+    expect(result.winningBid).to.equal(250_000);
+    expect(result.reserveMet).to.equal(true);
+    expect(result.settled).to.equal(true);
+  });
+
+  it("uses first valid sealed offer as the deterministic tie breaker", async function () {
+    await submit(alice, 250_000);
+    await submit(bob, 250_000);
+    await advance(100);
+    await auction.connect(outsider).closeAuction(auctionId);
+    await resolveAndSettle();
+
+    const result = await auction.getPublicResult(auctionId);
+    expect(result.winner).to.equal(alice.address);
+    expect(result.winningBid).to.equal(250_000);
+  });
+
+  it("settles a no-offer lot cleanly without public decryption", async function () {
+    await advance(100);
+    await auction.connect(outsider).closeAuction(auctionId);
+    await expect(auction.connect(outsider).beginResolution(auctionId))
+      .to.emit(auction, "AuctionSettled")
+      .withArgs(auctionId, ethers.ZeroAddress, 0, false);
+
+    const result = await auction.getPublicResult(auctionId);
+    expect(result.winner).to.equal(ethers.ZeroAddress);
+    expect(result.winningBid).to.equal(0);
+    expect(result.reserveMet).to.equal(false);
+    expect(result.settled).to.equal(true);
+  });
+
+  it("accepts only the proof-backed FHE public decryption outcome", async function () {
+    await submit(alice, 250_000);
+    await submit(bob, 420_000);
+    await advance(100);
+    await auction.connect(outsider).closeAuction(auctionId);
+    await resolveAndSettle();
+
+    const result = await auction.getPublicResult(auctionId);
+    expect(result.winner).to.equal(bob.address);
+    expect(result.winningBid).to.equal(420_000);
+    expect(result.settled).to.equal(true);
   });
 });

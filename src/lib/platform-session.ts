@@ -3,7 +3,7 @@ export type DealerSession = {
   businessName: string;
   contact: string;
   sessionId: string;
-  mode: "testnet";
+  mode: "preview";
 };
 
 export function createDealerSession(input: {
@@ -28,6 +28,6 @@ export function createDealerSession(input: {
     businessName,
     contact,
     sessionId: `dealer-${entropy}`,
-    mode: "testnet",
+    mode: "preview",
   };
 }

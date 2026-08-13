@@ -1,75 +1,70 @@
-import { useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import {
-  ArrowUpRight,
-  Bell,
-  Car,
+  ArrowRight,
+  Bookmark,
   Check,
-  ChevronDown,
+  CheckCircle2,
   CircleHelp,
   Clock3,
   Eye,
   FileCheck2,
-  Filter,
-  Gauge,
   Gavel,
-  Grid2X2,
-  LayoutDashboard,
   LockKeyhole,
   Menu,
-  Plus,
   Search,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
-  Tag,
-  Users,
   UserRound,
+  Users,
   X,
 } from "lucide-react";
-import { activity, auctions } from "./data";
-import type { Auction, AuctionStatus } from "./types";
+import { auctions } from "./data";
+import { formatNaira, formatNairaInput, KOBO_PER_NAIRA, nairaToKobo } from "./lib/money";
 import { createDealerSession, type DealerSession } from "./lib/platform-session";
-import { contractConfig } from "./lib/contract-config";
+import type { Auction, AuctionStatus } from "./types";
 
-const nav = [
-  { label: "Marketplace", icon: Grid2X2 },
-  { label: "My activity", icon: LayoutDashboard },
-  { label: "Saved lots", icon: Eye },
-  { label: "Organiser studio", icon: Gavel },
-];
+const contractEvidenceUrl = "https://github.com/GeneralSage/ojabid/blob/main/contracts/test/ConfidentialAutoAuction.ts";
 
 function Badge({ status }: { status: AuctionStatus }) {
-  const live = status === "Live now";
-  const soon = status === "Closing soon";
-  return <span className={`status-badge ${live ? "live" : soon ? "soon" : "upcoming"}`}><span />{status}</span>;
+  const className = status === "Open" ? "open" : status === "Closing soon" ? "closing" : "soon";
+  return <span className={`status-badge ${className}`}><span />{status}</span>;
+}
+
+function scrollTo(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function App() {
-  const [activeNav, setActiveNav] = useState("Marketplace");
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("All lots");
-  const [showFilters, setShowFilters] = useState(false);
+  const [category, setCategory] = useState<"All lots" | Auction["category"]>("All lots");
   const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
   const [session, setSession] = useState<DealerSession | null>(null);
   const [sessionOpen, setSessionOpen] = useState(false);
   const [sessionError, setSessionError] = useState("");
   const [joined, setJoined] = useState<string[]>([]);
+  const [saved, setSaved] = useState<string[]>([]);
   const [bidValues, setBidValues] = useState<Record<string, string>>({});
-  const [sealedBids, setSealedBids] = useState<Record<string, string>>({});
+  const [sealedOffers, setSealedOffers] = useState<Record<string, bigint>>({});
+  const [bidError, setBidError] = useState("");
 
   const filtered = useMemo(() => auctions.filter((auction) => {
-    const matchesQuery = `${auction.title} ${auction.location} ${auction.organiser}`.toLowerCase().includes(query.toLowerCase());
-    const matchesCategory = category === "All lots" || auction.category === category;
-    return matchesQuery && matchesCategory;
+    const searchable = `${auction.title} ${auction.location} ${auction.organiser} ${auction.category}`.toLowerCase();
+    return searchable.includes(query.toLowerCase()) && (category === "All lots" || category === auction.category);
   }), [category, query]);
 
-  function joinAuction(auction: Auction) {
+  function openLot(auction: Auction) {
+    setBidError("");
+    setSelectedAuction(auction);
+  }
+
+  function startOffer(auction: Auction) {
+    if (auction.status === "Opening soon") return;
     if (!session) {
       setSessionOpen(true);
       return;
     }
     setJoined((current) => current.includes(auction.id) ? current : [...current, auction.id]);
-    setSelectedAuction(auction);
+    setBidError("");
   }
 
   function handleSession(input: { dealerName: string; businessName: string; contact: string }) {
@@ -77,65 +72,103 @@ function App() {
     try {
       setSession(createDealerSession(input));
       setSessionOpen(false);
+      const pendingAuction = selectedAuction;
+      if (pendingAuction && pendingAuction.status !== "Opening soon") {
+        setJoined((current) => current.includes(pendingAuction.id) ? current : [...current, pendingAuction.id]);
+      }
     } catch (error) {
-      setSessionError(error instanceof Error ? error.message : "Could not start dealer session.");
+      setSessionError(error instanceof Error ? error.message : "Could not start your dealer session.");
     }
   }
 
-  function sealBid(auctionId: string) {
-    const amount = bidValues[auctionId]?.replace(/[^0-9]/g, "") ?? "";
-    if (!amount || Number(amount) <= 0) return;
-    setSealedBids((current) => ({ ...current, [auctionId]: amount }));
+  function sealOffer(auction: Auction) {
+    const kobo = nairaToKobo(bidValues[auction.id] ?? "");
+    const minimumKobo = BigInt(auction.openingBidNaira) * KOBO_PER_NAIRA;
+    if (!kobo) {
+      setBidError("Enter the maximum amount you are prepared to offer in Naira.");
+      return;
+    }
+    if (kobo < minimumKobo) {
+      setBidError(`Your maximum offer must be at least ${formatNaira(auction.openingBidNaira)}.`);
+      return;
+    }
+    if ((kobo - minimumKobo) % (BigInt(auction.bidIncrementNaira) * KOBO_PER_NAIRA) !== 0n) {
+      setBidError(`Use increments of ${formatNaira(auction.bidIncrementNaira)} from the opening offer.`);
+      return;
+    }
+    setSealedOffers((current) => ({ ...current, [auction.id]: kobo }));
+    setBidError("");
   }
 
-  return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-lockup"><div className="brand-mark"><LockKeyhole size={17} strokeWidth={2.5} /></div><span>ojabid</span></div>
-        <div className="testnet-pill"><span className="pulse" /> Testnet workspace</div>
-        <div className="sidebar-label">Workspace</div>
-        <nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={activeNav === label ? "nav-item active" : "nav-item"} onClick={() => setActiveNav(label)}><Icon size={17} />{label}{label === "Saved lots" && <span className="nav-count">4</span>}</button>)}</nav>
-        <div className="sidebar-footer">
-          <div className="privacy-card"><div className="privacy-icon"><ShieldCheck size={17} /></div><div><strong>Private by default</strong><p>Every bid is encrypted before it leaves your device.</p></div></div>
-          <button className="nav-item"><CircleHelp size={17} />How OjaBid works</button>
-          <div className="account-row"><div className="avatar">AD</div><div className="account-info"><strong>Ayomide D.</strong><span>Dealer account</span></div><ChevronDown size={15} /></div>
+  function toggleSaved(auctionId: string) {
+    setSaved((current) => current.includes(auctionId) ? current.filter((id) => id !== auctionId) : [...current, auctionId]);
+  }
+
+  return <div className="site-shell">
+    <header className="site-header">
+      <a className="brand-lockup" href="#top" aria-label="OjaBid home"><span className="brand-mark"><LockKeyhole size={17} strokeWidth={2.5} /></span><span>ojabid</span></a>
+      <nav className="main-nav" aria-label="Primary navigation"><a href="#lots">Lots</a><a href="#privacy">How privacy works</a><a href="#why">Why we built this</a></nav>
+      <div className="header-actions"><button className="mobile-menu" aria-label="Browse lots" onClick={() => scrollTo("lots")}><Menu size={20} /></button><button className={session ? "dealer-button active" : "dealer-button"} onClick={() => setSessionOpen(true)}><UserRound size={16} />{session ? session.dealerName : "Dealer sign-in"}</button></div>
+    </header>
+
+    <main id="top">
+      <section className="hero" aria-labelledby="hero-title">
+        <div className="hero-copy">
+          <span className="eyebrow"><Sparkles size={14} /> Nigerian auto auctions, redesigned</span>
+          <h1 id="hero-title">Your bid is <em>your business.</em></h1>
+          <p className="hero-lede">OjaBid is being built so verified auto dealers can submit confidential maximum offers in Naira. While a lot is open, no competitor should see your price—or identify you from a public bid ladder.</p>
+          <div className="hero-actions"><button className="primary-button" onClick={() => scrollTo("lots")}>Browse confidential lots <ArrowRight size={17} /></button><button className="quiet-button" onClick={() => scrollTo("why")}>Why this matters</button></div>
+          <p className="preview-notice"><Eye size={14} /> Product preview: explore the experience safely. This public page accepts no payment and does not submit an auction offer.</p>
         </div>
-      </aside>
+        <div className="privacy-promise" id="privacy">
+          <span className="promise-kicker">During an open auction</span>
+          <h2>There is no public bid ladder.</h2>
+          <div className="promise-grid"><div><LockKeyhole size={18} /><strong>Your Naira maximum</strong><span>Never shown to competing dealers.</span></div><div><Users size={18} /><strong>Your participation</strong><span>No public list of who is bidding.</span></div><div><Gavel size={18} /><strong>The fair outcome</strong><span>Best valid sealed offer wins when the lot closes.</span></div></div>
+          <a href={contractEvidenceUrl} target="_blank" rel="noreferrer" className="evidence-link">Read the tested auction rules <ArrowRight size={14} /></a>
+        </div>
+      </section>
 
-      <main className="main-content">
-        <header className="topbar"><button className="mobile-menu"><Menu size={20} /></button><div className="breadcrumb"><span>Marketplace</span><span>/</span><strong>{activeNav}</strong></div><div className="top-actions"><button className="icon-button"><Bell size={18} /><i /></button><button className={session ? "wallet-button connected" : "wallet-button"} onClick={() => setSessionOpen(true)}><UserRound size={17} />{session ? session.dealerName : "Dealer sign-in"}</button></div></header>
-        {sessionError && <div className="wallet-error"><CircleHelp size={15} />{sessionError}<button onClick={() => setSessionError("")}><X size={14} /></button></div>}
+      <section className="truth-strip" aria-label="Auction privacy summary"><div><CheckCircle2 size={18} /><span><strong>Public:</strong> lot details, opening offer, rules and closing time.</span></div><div><LockKeyhole size={18} /><span><strong>Confidential while open:</strong> dealer identity and every maximum offer.</span></div><div><ShieldCheck size={18} /><span><strong>After close:</strong> the verified outcome is resolved under the auction rules.</span></div></section>
+      <p className="production-truth"><ShieldCheck size={15} />Live-release requirement: encrypted values alone do not hide blockchain sender metadata. OjaBid must use a relayed or account-abstraction flow before it can promise anonymous participation.</p>
 
-        <section className="hero-section"><div><div className="eyebrow"><Sparkles size={14} /> A fairer way to trade</div><h1>Find your next <em>edge.</em></h1><p>Private Naira auctions for dealers who want to compete on value, not visibility.</p></div><button className="story-button">Why we built this <ArrowUpRight size={16} /></button></section>
+      <section className="lots-section" id="lots" aria-labelledby="lots-title">
+        <div className="section-heading"><div><span className="eyebrow">Private lots</span><h2 id="lots-title">Inspect the vehicle. Decide your number. Keep it private.</h2></div><p>These are the only figures a competing dealer should need to see: the public opening rule and the number of confidential offers received.</p></div>
+        <div className="browse-toolbar"><label className="search-box"><Search size={17} /><span className="sr-only">Search lots</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search make, model or location" /></label><div className="category-tabs" aria-label="Lot category">{(["All lots", "Cars", "Motorcycles", "Trucks"] as const).map((item) => <button key={item} className={category === item ? "selected" : ""} onClick={() => setCategory(item)}>{item}</button>)}</div></div>
+        <div className="auction-grid">{filtered.map((auction) => <AuctionCard key={auction.id} auction={auction} joined={joined.includes(auction.id)} saved={saved.includes(auction.id)} sealed={Boolean(sealedOffers[auction.id])} onOpen={() => openLot(auction)} onSave={() => toggleSaved(auction.id)} />)}</div>
+        {filtered.length === 0 && <div className="empty-state"><CircleHelp size={20} /><p>No lots match that search. Try a make, model, city or category.</p></div>}
+      </section>
 
-        <section className="stats-strip"><div className="stat"><span className="stat-icon green"><Gavel size={16} /></span><div><strong>24</strong><span>Live auctions</span></div></div><div className="stat"><span className="stat-icon blue"><Users size={16} /></span><div><strong>186</strong><span>Verified dealers</span></div></div><div className="stat"><span className="stat-icon amber"><LockKeyhole size={16} /></span><div><strong>100%</strong><span>Bids encrypted</span></div></div><div className="market-note"><span className="signal-dot" /> Lagos & Abuja markets <ChevronDown size={14} /></div></section>
+      <section className="story-section" id="why" aria-labelledby="story-title"><div className="story-mark"><span>“</span></div><div className="story-copy"><span className="eyebrow">Why we built this</span><h2 id="story-title">A small dealer should not lose a fair chance just because someone can see them trying.</h2><p>OjaBid began after a new dealer in Abuja finally raised enough to enter an auction for a vehicle he had carefully chosen. In the room, another dealer saw who was bidding and pushed the price far beyond the vehicle’s value—not because the car was worth it, but to show a smaller player he did not belong.</p><p>That moment made the problem clear: public bidding gives people with more money an extra weapon. Privacy is not a luxury here. It is the space a dealer needs to compete on judgment, not intimidation.</p><div className="story-signature"><span className="signature-line" />Built for dealers who deserve a fair shot.</div></div></section>
 
-        <section className="toolbar"><div className="section-title"><h2>Browse lots</h2><span>{filtered.length} available</span></div><div className="toolbar-actions"><div className="search-box"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search make, model, organiser..." /></div><div className="select-wrap"><Tag size={15} /><select value={category} onChange={(e) => setCategory(e.target.value)}><option>All lots</option><option>Cars</option><option>Motorcycles</option><option>Trucks</option></select></div><button className={`filter-button ${showFilters ? "selected" : ""}`} onClick={() => setShowFilters(!showFilters)}><SlidersHorizontal size={16} /> Filters</button></div></section>
-        {showFilters && <div className="filter-panel"><span>Filter by</span><button>Verified inspection <Check size={14} /></button><button>Closing today</button><button>My eligible lots</button><button className="clear" onClick={() => setShowFilters(false)}><X size={14} /> Close</button></div>}
+      <section className="how-section" aria-labelledby="how-title"><div><span className="eyebrow">The auction rule</span><h2 id="how-title">Simple for dealers. Hard to game.</h2></div><ol><li><span>01</span><div><strong>Inspect the lot</strong><p>Review verified documents, condition and the public opening rule.</p></div></li><li><span>02</span><div><strong>Set your maximum in Naira</strong><p>Only you know the highest amount you are willing to pay.</p></div></li><li><span>03</span><div><strong>Seal your offer</strong><p>There is no public price ladder, bidder list or live ranking to hunt.</p></div></li><li><span>04</span><div><strong>Resolve after close</strong><p>The best valid sealed offer is determined by the published rule.</p></div></li></ol></section>
+    </main>
 
-        <section className="auction-grid">{filtered.map((auction) => <AuctionCard key={auction.id} auction={auction} joined={joined.includes(auction.id)} onOpen={() => setSelectedAuction(auction)} />)}</section>
+    <footer className="site-footer"><span>OjaBid / confidential Naira auto auctions</span><a href={contractEvidenceUrl} target="_blank" rel="noreferrer">Tested FHE auction rules</a><a href="https://github.com/GeneralSage/ojabid" target="_blank" rel="noreferrer">Project source</a></footer>
 
-        <section className="lower-grid"><div className="activity-panel"><div className="panel-heading"><div><span className="eyebrow small">Your desk</span><h2>Recent activity</h2></div><button className="text-button">View all <ArrowUpRight size={14} /></button></div>{activity.map((item) => <div className="activity-row" key={item.title}><span className={`activity-dot ${item.tone}`} /><div><strong>{item.title}</strong><span>{item.detail}</span></div><time>{item.time}</time></div>)}</div><div className="principle-panel"><div className="principle-art"><div className="ring ring-one" /><div className="ring ring-two" /><LockKeyhole size={23} /></div><div><span className="eyebrow small">The OjaBid principle</span><h2>Good deals need room to breathe.</h2><p>See the vehicle. Know the rules. Submit what it is worth to you. Nobody else needs to know why.</p><button className="text-button">Read our story <ArrowUpRight size={14} /></button></div></div></section>
-      </main>
-      {selectedAuction && <AuctionDrawer auction={selectedAuction} joined={joined.includes(selectedAuction.id)} sealedBid={sealedBids[selectedAuction.id]} bidValue={bidValues[selectedAuction.id] ?? ""} onBidChange={(value) => setBidValues((current) => ({ ...current, [selectedAuction.id]: value }))} onSealBid={() => sealBid(selectedAuction.id)} onClose={() => setSelectedAuction(null)} onJoin={() => joinAuction(selectedAuction)} />}
-      {sessionOpen && <DealerSessionModal onClose={() => setSessionOpen(false)} onSubmit={handleSession} />}
-    </div>
-  );
+    {sessionError && <div className="notice-error" role="alert"><CircleHelp size={15} />{sessionError}<button onClick={() => setSessionError("")} aria-label="Dismiss"><X size={14} /></button></div>}
+    {selectedAuction && <AuctionDrawer auction={selectedAuction} session={session} joined={joined.includes(selectedAuction.id)} sealedOffer={sealedOffers[selectedAuction.id]} bidValue={bidValues[selectedAuction.id] ?? ""} bidError={bidError} onBidChange={(value) => setBidValues((current) => ({ ...current, [selectedAuction.id]: formatNairaInput(value) }))} onSealOffer={() => sealOffer(selectedAuction)} onClose={() => { setSelectedAuction(null); setBidError(""); }} onStartOffer={() => startOffer(selectedAuction)} />}
+    {sessionOpen && <DealerSessionModal onClose={() => setSessionOpen(false)} onSubmit={handleSession} />}
+  </div>;
 }
 
-function AuctionCard({ auction, joined, onOpen }: { auction: Auction; joined: boolean; onOpen: () => void }) {
-  return <article className="auction-card"><div className="card-image-wrap"><img src={auction.image} alt="" /><div className="image-top"><Badge status={auction.status} /><button className="save-button"><Eye size={15} /></button></div><div className="image-bottom"><span><Clock3 size={13} /> {auction.endsIn}</span><span><Users size={13} /> {auction.watchers}</span></div></div><div className="card-body"><div className="card-meta"><span>{auction.category}</span><span className="verified"><ShieldCheck size={13} /> Verified lot</span></div><h3>{auction.title}</h3><p className="muted">{auction.subtitle}</p><p className="location"><span className="location-pin" />{auction.location}</p><div className="card-divider" /><div className="card-footer"><div><span className="organiser-label">Organised by</span><strong>{auction.organiser}</strong></div><button className={joined ? "bid-button joined" : "bid-button"} onClick={onOpen}>{joined ? <><LockKeyhole size={14} /> Sealed bid</> : <>View lot <ArrowUpRight size={14} /></>}</button></div></div></article>;
+function AuctionCard({ auction, joined, saved, sealed, onOpen, onSave }: { auction: Auction; joined: boolean; saved: boolean; sealed: boolean; onOpen: () => void; onSave: () => void }) {
+  return <article className="auction-card"><div className="card-image-wrap"><img src={auction.image} alt={`${auction.title} available at ${auction.location}`} /><div className="image-top"><Badge status={auction.status} /><button className={saved ? "save-button saved" : "save-button"} onClick={onSave} aria-label={saved ? `Remove ${auction.title} from saved lots` : `Save ${auction.title}`}><Bookmark size={15} fill={saved ? "currentColor" : "none"} /></button></div></div><div className="card-body"><div className="card-meta"><span>{auction.category}</span><span><ShieldCheck size={13} /> Verified lot</span></div><h3>{auction.title}</h3><p className="muted">{auction.subtitle}</p><p className="location">{auction.location}</p><div className="public-rule"><span>Opening offer</span><strong>{formatNaira(auction.openingBidNaira)}</strong><small>+ {formatNaira(auction.bidIncrementNaira)} increments</small></div><div className="confidential-count"><LockKeyhole size={14} /><span>{auction.sealedOfferCount === 0 ? "No confidential offers yet" : `${auction.sealedOfferCount} confidential offers`}</span><span className="card-clock"><Clock3 size={13} />{auction.endsIn}</span></div><button className={sealed ? "card-action sealed" : "card-action"} onClick={onOpen}>{sealed ? <><Check size={15} />Your offer is sealed</> : joined ? <><LockKeyhole size={15} />Set your maximum</> : <>View lot & rules <ArrowRight size={15} /></>}</button></div></article>;
 }
 
-function AuctionDrawer({ auction, joined, sealedBid, bidValue, onBidChange, onSealBid, onClose, onJoin }: { auction: Auction; joined: boolean; sealedBid?: string; bidValue: string; onBidChange: (value: string) => void; onSealBid: () => void; onClose: () => void; onJoin: () => void }) {
-  return <div className="drawer-backdrop" onClick={onClose}><aside className="auction-drawer" onClick={(e) => e.stopPropagation()}><button className="drawer-close" onClick={onClose}><X size={18} /></button><img className="drawer-image" src={auction.image} alt="" /><div className="drawer-content"><Badge status={auction.status} /><div className="drawer-kicker">{auction.id} · {auction.category}</div><h2>{auction.title}</h2><p className="muted">{auction.subtitle}</p><div className="drawer-info"><span><Gauge size={16} />{auction.location}</span><span><FileCheck2 size={16} />Inspection report ready</span><span><Users size={16} />{auction.bids} sealed participants</span></div><div className="privacy-callout"><LockKeyhole size={19} /><div><strong>Your bid is sealed</strong><p>Encrypted before submission. You will never see a public bid ladder, and other dealers will not see yours.</p></div></div><div className="drawer-rule"><span>Auction closes</span><strong>{auction.endsIn}</strong></div>{joined ? <div className="bid-entry"><label htmlFor="max-bid">Your maximum bid (₦)</label>{sealedBid ? <div className="sealed-confirmation"><LockKeyhole size={16} /><span>Bid sealed privately</span><strong>₦{Number(sealedBid).toLocaleString("en-NG")}</strong></div> : <><div className="naira-input"><span>₦</span><input id="max-bid" inputMode="numeric" value={bidValue} onChange={(event) => onBidChange(event.target.value)} placeholder="e.g. 18,500,000" /></div><button className="drawer-primary" onClick={onSealBid}><LockKeyhole size={17} />Encrypt & seal bid</button><small>Testnet only · simulated Naira units · no funds move</small></>}</div> : <button className="drawer-primary" onClick={onJoin}><Gavel size={17} />Join private auction</button>}<button className="drawer-secondary"><FileCheck2 size={16} />Review inspection report</button><p className="drawer-footnote">By joining, you agree to this organiser's auction rules. {contractConfig.currencySymbol} testnet workspace · simulated settlement only.</p></div></aside></div>;
+function AuctionDrawer({ auction, session, joined, sealedOffer, bidValue, bidError, onBidChange, onSealOffer, onClose, onStartOffer }: { auction: Auction; session: DealerSession | null; joined: boolean; sealedOffer?: bigint; bidValue: string; bidError: string; onBidChange: (value: string) => void; onSealOffer: () => void; onClose: () => void; onStartOffer: () => void }) {
+  const isOpeningSoon = auction.status === "Opening soon";
+  return <div className="drawer-backdrop" onClick={onClose}><aside className="auction-drawer" aria-label={`${auction.title} details`} onClick={(event) => event.stopPropagation()}><button className="drawer-close" onClick={onClose} aria-label="Close lot details"><X size={18} /></button><img className="drawer-image" src={auction.image} alt={`${auction.title} available at ${auction.location}`} /><div className="drawer-content"><Badge status={auction.status} /><p className="drawer-kicker">{auction.id} / {auction.category}</p><h2>{auction.title}</h2><p className="muted">{auction.subtitle}</p><div className="drawer-facts"><span><Clock3 size={16} /><strong>Closes</strong>{auction.endsIn}</span><span><FileCheck2 size={16} /><strong>Inspection</strong>Report ready</span><span><LockKeyhole size={16} /><strong>Offers received</strong>{auction.sealedOfferCount === 0 ? "Not yet disclosed" : `${auction.sealedOfferCount} confidential`}</span></div><div className="inspection-summary"><FileCheck2 size={18} /><p>{auction.inspectionSummary}</p></div><div className="auction-rule"><div><span>Public opening offer</span><strong>{formatNaira(auction.openingBidNaira)}</strong></div><div><span>Offer increment</span><strong>{formatNaira(auction.bidIncrementNaira)}</strong></div></div><div className="privacy-callout"><LockKeyhole size={19} /><div><strong>No one sees what you are offering.</strong><p>Competing dealers cannot see your maximum, your ranking or a public list of bidders while this lot is open.</p></div></div>{isOpeningSoon ? <button className="drawer-primary disabled" disabled><Clock3 size={17} />Registration opens later</button> : !joined ? <button className="drawer-primary" onClick={onStartOffer}><Gavel size={17} />{session ? "Enter private offer" : "Sign in to enter a private offer"}</button> : <div className="bid-entry"><label htmlFor="max-offer">Your confidential maximum offer</label>{sealedOffer ? <div className="sealed-confirmation"><CheckCircle2 size={18} /><div><strong>Your maximum is sealed in this preview.</strong><span>{formatNaira(sealedOffer / KOBO_PER_NAIRA)} is visible only to you here.</span></div></div> : <><div className="naira-input"><span>₦</span><input id="max-offer" inputMode="numeric" value={bidValue} onChange={(event) => onBidChange(event.target.value)} placeholder={formatNaira(auction.openingBidNaira).replace("₦", "")} aria-describedby="offer-help" /></div><p id="offer-help" className="offer-help">Minimum: {formatNaira(auction.openingBidNaira)} / increments: {formatNaira(auction.bidIncrementNaira)}. We handle values as Naira in the experience and kobo in the auction engine.</p>{bidError && <p className="bid-error" role="alert"><CircleHelp size={14} />{bidError}</p>}<button className="drawer-primary" onClick={onSealOffer}><LockKeyhole size={17} />Prepare confidential offer</button><p className="preview-note">Preview only: this does not send a payment or enter a live auction.</p></>}</div>}<a className="drawer-secondary" href={contractEvidenceUrl} target="_blank" rel="noreferrer"><ShieldCheck size={16} />See tested auction rules</a></div></aside></div>;
 }
 
 function DealerSessionModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (input: { dealerName: string; businessName: string; contact: string }) => void }) {
   const [dealerName, setDealerName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [contact, setContact] = useState("");
-  return <div className="session-backdrop" onClick={onClose}><section className="session-modal" onClick={(event) => event.stopPropagation()}><button className="drawer-close" onClick={onClose}><X size={18} /></button><div className="session-icon"><UserRound size={20} /></div><span className="eyebrow small">Dealer workspace</span><h2>Enter OjaBid privately.</h2><p>Sign in with your dealership details. No wallet, tokens, or crypto knowledge required.</p><label>Dealer name<input value={dealerName} onChange={(event) => setDealerName(event.target.value)} placeholder="e.g. Ayomide D." /></label><label>Dealership<input value={businessName} onChange={(event) => setBusinessName(event.target.value)} placeholder="e.g. Dami Autos" /></label><label>Phone or email<input value={contact} onChange={(event) => setContact(event.target.value)} placeholder="Your contact" /></label><button className="drawer-primary" onClick={() => onSubmit({ dealerName, businessName, contact })}><UserRound size={17} />Continue as dealer</button><small className="session-note">Platform-managed account · bids are encrypted with Zama FHE on testnet.</small></section></div>;
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSubmit({ dealerName, businessName, contact });
+  }
+  return <div className="session-backdrop" onClick={onClose}><form className="session-modal" onSubmit={submit} onClick={(event) => event.stopPropagation()}><button type="button" className="drawer-close" onClick={onClose} aria-label="Close dealer sign-in"><X size={18} /></button><div className="session-icon"><UserRound size={20} /></div><span className="eyebrow">Dealer access</span><h2>Enter the auction without a wallet.</h2><p>OjaBid is built around dealership details and Naira offers—not crypto language. This preview keeps the information in your current browser only.</p><label>Dealer name<input required value={dealerName} onChange={(event) => setDealerName(event.target.value)} placeholder="e.g. Ayomide D." /></label><label>Dealership<input required value={businessName} onChange={(event) => setBusinessName(event.target.value)} placeholder="e.g. Dami Autos" /></label><label>Phone or email<input required value={contact} onChange={(event) => setContact(event.target.value)} placeholder="Your contact" /></label><button className="drawer-primary" type="submit"><UserRound size={17} />Continue as dealer</button><small className="session-note">No payment, offer or personal detail leaves this preview.</small></form></div>;
 }
 
 export { App };

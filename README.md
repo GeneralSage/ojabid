@@ -25,6 +25,7 @@ This repository is the foundation for a real Nigerian auto-auction product. The 
 - [Implementation plan](IMPLEMENTATION_PLAN.md) — contract state machine, backlog, and security gates.
 - [Fundraising brief](FUNDRAISING_BRIEF.md) — scalable product thesis, grant milestones, and production-promotion strategy.
 - [Architecture](ARCHITECTURE.md) — marketplace domains, FHE boundary, privacy model, and promotion path.
+- [Product hardening plan](PRODUCT_HARDENING_PLAN.md) — audited defects, repaired auction rules, and enterprise promotion gates.
 
 ## Run locally
 
@@ -35,7 +36,7 @@ npm install
 npm run dev
 ```
 
-The current UI uses a dealer sign-in and platform-managed test session, so an auto dealer never needs a wallet or crypto UX. It runs with seeded marketplace data and a Naira bid-entry flow; contract reads/writes and the relayer are the next integration slice. The visible environment is labelled as testnet and simulated settlement.
+The public UI is a Naira-first product preview: it explains the privacy model, shows the public lot rule, and demonstrates the private-offer experience without accepting a payment or submitting a live offer. The FHEVM contract and its tests live in `contracts/`; Relayer SDK, backend, identity, and settlement integration are required before a live auction can begin.
 
 ### FHEVM contracts
 

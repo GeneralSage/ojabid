@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-OjaBid is a multi-organiser B2B auto-asset marketplace. The application has four separable domains:
+OjaBid is a multi-organiser B2B auto-asset marketplace. Bid and reserve amounts use integer kobo in the auction engine (1 NGN = 100 kobo), while dealers always see and enter whole Naira. The application has four separable domains:
 
 1. **Marketplace** — organisers, lots, images, inspection evidence, eligibility, and search.
 2. **Confidential auction engine** — encrypted bids, encrypted comparison, resolution, and public result proof.

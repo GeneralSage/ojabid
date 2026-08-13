@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .vite/
+.playwright-cli/
 *.tsbuildinfo
 .env
 .env.*

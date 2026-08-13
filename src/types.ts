@@ -1,4 +1,4 @@
-export type AuctionStatus = "Live now" | "Closing soon" | "Upcoming";
+export type AuctionStatus = "Open" | "Closing soon" | "Opening soon";
 
 export type Auction = {
   id: string;
@@ -9,10 +9,9 @@ export type Auction = {
   organiser: string;
   status: AuctionStatus;
   endsIn: string;
-  bids: number;
-  watchers: number;
-  category: string;
-  verified: boolean;
-  yourStatus?: "Bidding" | "Watching" | "Not joined";
-  signal: string;
+  sealedOfferCount: number;
+  category: "Cars" | "Motorcycles" | "Trucks";
+  openingBidNaira: number;
+  bidIncrementNaira: number;
+  inspectionSummary: string;
 };

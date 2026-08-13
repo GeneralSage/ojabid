@@ -6,6 +6,9 @@
     "func-visibility": ["error", { "ignoreConstructors": true }],
     "max-line-length": ["error", 120],
     "named-parameters-mapping": "warn",
+    "gas-indexed-events": "off",
+    "gas-increment-by-one": "off",
+    "gas-strict-inequalities": "off",
     "no-console": "off",
     "not-rely-on-time": "off"
   }
