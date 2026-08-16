@@ -1,8 +1,25 @@
 export type AuctionStatus = "Open" | "Closing soon" | "Opening soon";
 
+export type AuctionImage = {
+  url: string;
+  alt: string;
+  sourceLabel: string;
+  sourceUrl: string;
+};
+
+export type AuctionDocument = {
+  name: string;
+  access: string;
+};
+
+export type VehicleDetail = {
+  label: string;
+  value: string;
+};
+
 export type Auction = {
   id: string;
-  image: string;
+  images: AuctionImage[];
   title: string;
   subtitle: string;
   location: string;
@@ -14,4 +31,8 @@ export type Auction = {
   openingBidNaira: number;
   bidIncrementNaira: number;
   inspectionSummary: string;
+  vehicleDetails: VehicleDetail[];
+  conditionHighlights: string[];
+  documents: AuctionDocument[];
+  collectionWindow: string;
 };

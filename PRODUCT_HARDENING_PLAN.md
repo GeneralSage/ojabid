@@ -1,6 +1,6 @@
 # OjaBid Product Hardening Plan
 
-**Status:** In progress
+**Status:** Interactive preview verified; production gates remain open
 
 ## The release outcome
 
@@ -19,6 +19,7 @@ When a Nigerian dealer arrives, they should understand in seconds: "My Naira off
 | P1 | "Testnet workspace" was the strongest visible message. | Dealers do not need blockchain terminology and it distracts from the product promise. | Remove it from the public site. Keep grant/testnet boundaries in technical documentation only. |
 | P1 | The current contract stores and emits the reserve price in plaintext. | This is acceptable only if the auction partner chooses a public reserve; it is not a confidential-reserve design. | Make reserve visibility an explicit per-auction policy. If it must be private, redesign it as an encrypted value or commitment before production. |
 | P1 | Card images had empty alternative text and source text contained corrupted separators. | Accessibility and perceived quality were below enterprise standard. | Add meaningful image labels and replace corrupted copy. |
+| P1 | The sample vehicles did not match their displayed make/model and the lot flow was too shallow to resemble a real auction. | Misleading imagery and a static landing experience make a buyer question the product before testing its core privacy rule. | Use source-linked, model-correct reference imagery; label it honestly; support browse, search, inspection, documents, terms, dealer access, increment validation, sealed-offer preparation, watchlist and private offer review. |
 
 ## Required acceptance criteria
 
@@ -29,6 +30,7 @@ When a Nigerian dealer arrives, they should understand in seconds: "My Naira off
 - Bid input accepts and formats whole Naira. The technical amount is represented as kobo before encryption.
 - The preview never claims to have transmitted or encrypted a bid it did not submit.
 - Every visible CTA either works, scrolls to meaningful content, opens a real preview interaction, or is removed.
+- Preview vehicle images are clearly marked as model references and link to their source; production uses organiser or inspection-partner evidence for the exact lot.
 
 ### Auction-engine correctness
 
