@@ -1,4 +1,5 @@
 export type AuctionStatus = "Open" | "Closing soon" | "Opening soon";
+export type AuctionAudience = "Dealer" | "Consumer";
 
 export type AuctionImage = {
   url: string;
@@ -19,6 +20,7 @@ export type VehicleDetail = {
 
 export type Auction = {
   id: string;
+  audience: AuctionAudience;
   images: AuctionImage[];
   title: string;
   subtitle: string;
