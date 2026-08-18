@@ -36,7 +36,30 @@ npm install
 npm run dev
 ```
 
-The public UI is a Naira-first product preview: it explains the privacy model, shows the public lot rule, and demonstrates the private-offer experience without accepting a payment or submitting a live offer. The FHEVM contract and its tests live in `contracts/`; Relayer SDK, backend, identity, and settlement integration are required before a live auction can begin.
+The UI refuses to mark an offer as submitted until a real Sepolia deployment is configured. With the public `VITE_OJABID_*` settings and the Vercel server-only settings below, it reads public auction rules and encrypted-offer counts from Sepolia, encrypts a Naira maximum in the browser with Zama's Relayer SDK, and sends only ciphertext plus a Zama input proof to the platform relay. The relay pays testnet gas; dealers do not need wallets.
+
+### Deploy the Sepolia review environment
+
+The contract uses a platform relay account for testnet gas. Keep its mnemonic and private key in a secure secret manager: neither belongs in a `VITE_` variable or in git.
+
+```bash
+cd contracts
+npx hardhat vars set MNEMONIC
+npx hardhat vars set SEPOLIA_RPC_URL
+npx hardhat vars set OJABID_RELAY_ADDRESS
+npm run deploy:sepolia
+npx hardhat vars set OJABID_AUCTION_ADDRESS
+npm run seed:sepolia
+```
+
+`seed:sepolia` creates the twelve public vehicle lots used by the interface. They share a 30-minute registration period and a seven-day bidding window. It refuses to run against a contract that already contains auction lots.
+
+Set these as Vercel environment variables before publishing the configured interface:
+
+- Public build values: `VITE_OJABID_AUCTION_ADDRESS`, `VITE_OJABID_RELAY_ADDRESS`, `VITE_OJABID_SEPOLIA_RPC_URL`, and optionally `VITE_OJABID_API_BASE_URL`.
+- Server-only relay values: `OJABID_AUCTION_ADDRESS`, `OJABID_RELAY_ADDRESS`, `OJABID_SEPOLIA_RPC_URL`, `OJABID_PLATFORM_PRIVATE_KEY`, `OJABID_TEST_ACCESS_CODE`, `OJABID_SESSION_SECRET`, and `OJABID_ALLOWED_ORIGINS`.
+
+The test access code is only a grant-review control. A production release needs real identity verification, revocable sessions, rate limits, a protected relay key, and a compliant Naira settlement/escrow flow.
 
 ### FHEVM contracts
 

@@ -24,6 +24,7 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
         uint64 startAt;
         uint64 endAt;
         uint64 minimumBid;
+        uint64 bidIncrement;
         uint64 reservePrice;
         uint32 bidderCount;
         Status status;
@@ -33,6 +34,9 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
     }
 
     uint256 private _nextAuctionId;
+    /// @notice Service account that submits proof-bound encrypted inputs for wallet-free buyers.
+    /// @dev Buyers encrypt in their browser against this address; the relay never receives plaintext.
+    address public immutable bidRelay;
     mapping(uint256 auctionId => Auction auction) private _auctions;
     mapping(uint256 auctionId => mapping(address bidder => bool isApproved)) private _approved;
     mapping(uint256 auctionId => mapping(address bidder => euint64 bid)) private _bids;
@@ -50,7 +54,15 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
     error InvalidTiming();
     error InvalidBid();
     error AlreadyBid();
+    error AlreadyApproved();
     error InvalidReserve();
+    error InvalidIncrement();
+    error NotBidRelay();
+
+    constructor(address bidRelay_) {
+        if (bidRelay_ == address(0)) revert NotBidRelay();
+        bidRelay = bidRelay_;
+    }
 
     /// @notice Emitted when an organiser creates a lot.
     /// @param auctionId The identifier of the new lot.
@@ -58,6 +70,7 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
     /// @param startAt The auction opening timestamp.
     /// @param endAt The auction closing timestamp.
     /// @param minimumBid The public minimum bid in kobo.
+    /// @param bidIncrement The public minimum bid increment in kobo.
     /// @param reservePrice The public reserve price in kobo, if configured.
     event AuctionCreated(
         uint256 indexed auctionId,
@@ -65,6 +78,7 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
         uint64 startAt,
         uint64 endAt,
         uint64 minimumBid,
+        uint64 bidIncrement,
         uint64 reservePrice
     );
     /// @notice Emitted after an organiser approves a bidder without disclosing their address in the event.
@@ -102,19 +116,34 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
         _;
     }
 
+    modifier onlyBidRelay() {
+        if (msg.sender != bidRelay) revert NotBidRelay();
+        _;
+    }
+
+    function _isValidBid(euint64 bid, uint64 minimumBid, uint64 bidIncrement) internal returns (ebool) {
+        return FHE.and(
+            FHE.ge(bid, FHE.asEuint64(minimumBid)),
+            FHE.eq(FHE.rem(FHE.sub(bid, FHE.asEuint64(minimumBid)), bidIncrement), FHE.asEuint64(0))
+        );
+    }
+
     /// @notice Creates one auction lot. The contract can host many organisers and concurrent lots.
     /// @param startAt The scheduled opening timestamp.
     /// @param endAt The scheduled closing timestamp.
     /// @param minimumBid The public minimum bid in kobo.
+    /// @param bidIncrement The public minimum bid increment in kobo.
     /// @param reservePrice The public reserve price in kobo, or zero for no reserve.
     /// @return auctionId The identifier of the newly created lot.
     function createAuction(
         uint64 startAt,
         uint64 endAt,
         uint64 minimumBid,
+        uint64 bidIncrement,
         uint64 reservePrice
     ) external returns (uint256 auctionId) {
         if (startAt < block.timestamp || endAt <= startAt || minimumBid == 0) revert InvalidTiming();
+        if (bidIncrement == 0) revert InvalidIncrement();
         if (reservePrice != 0 && reservePrice < minimumBid) revert InvalidReserve();
 
         auctionId = _nextAuctionId++;
@@ -123,10 +152,11 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
         auction.startAt = startAt;
         auction.endAt = endAt;
         auction.minimumBid = minimumBid;
+        auction.bidIncrement = bidIncrement;
         auction.reservePrice = reservePrice;
         auction.status = Status.Draft;
 
-        emit AuctionCreated(auctionId, msg.sender, startAt, endAt, minimumBid, reservePrice);
+        emit AuctionCreated(auctionId, msg.sender, startAt, endAt, minimumBid, bidIncrement, reservePrice);
     }
 
     /// @notice Opens a prepared lot once its scheduled time has arrived.
@@ -148,31 +178,35 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
         Auction storage auction = _auctions[auctionId];
         if (bidder == address(0)) revert NotApprovedBidder();
         if (auction.status != Status.Draft || block.timestamp >= auction.startAt) revert InvalidStatus();
+        if (_approved[auctionId][bidder]) revert AlreadyApproved();
         _approved[auctionId][bidder] = true;
         emit BidderApproved(auctionId);
     }
 
-    /// @notice Submits an encrypted maximum bid. Bid values never enter public event data.
+    /// @notice Submits an encrypted maximum bid through OjaBid's wallet-free relay.
+    /// @dev The browser encrypts against `bidRelay`; the relay receives only ciphertext and proof.
+    ///      `bidderId` is an app-issued pseudonymous address, never a customer identity.
     /// @param auctionId The lot identifier.
-    /// @param encryptedBid The dealer's encrypted maximum bid handle.
+    /// @param bidderId The approved, pseudonymous buyer identifier.
+    /// @param encryptedBid The buyer's encrypted maximum bid handle.
     /// @param inputProof The Zama input proof for the encrypted bid.
-    function submitBid(
+    function submitBidFor(
         uint256 auctionId,
+        address bidderId,
         externalEuint64 encryptedBid,
         bytes calldata inputProof
-    ) external auctionExists(auctionId) {
+    ) external onlyBidRelay auctionExists(auctionId) {
         Auction storage auction = _auctions[auctionId];
         if (auction.status != Status.Active || block.timestamp < auction.startAt || block.timestamp >= auction.endAt) {
             revert InvalidStatus();
         }
-        if (!_approved[auctionId][msg.sender]) revert NotApprovedBidder();
-        if (_hasBid[auctionId][msg.sender]) revert AlreadyBid();
+        if (bidderId == address(0) || !_approved[auctionId][bidderId]) revert NotApprovedBidder();
+        if (_hasBid[auctionId][bidderId]) revert AlreadyBid();
 
         euint64 bid = FHE.fromExternal(encryptedBid, inputProof);
-        euint64 minimum = FHE.asEuint64(auction.minimumBid);
-        ebool isValid = FHE.ge(bid, minimum);
+        ebool isValid = _isValidBid(bid, auction.minimumBid, auction.bidIncrement);
 
-        eaddress bidder = FHE.asEaddress(msg.sender);
+        eaddress bidder = FHE.asEaddress(bidderId);
         if (!FHE.isInitialized(auction.highestBid)) {
             // A below-minimum first offer must initialise to zero, never to that invalid offer.
             auction.highestBid = FHE.select(isValid, bid, FHE.asEuint64(0));
@@ -184,15 +218,15 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
             auction.highestBidder = FHE.select(shouldReplace, bidder, auction.highestBidder);
         }
         auction.hasWinner = FHE.or(auction.hasWinner, isValid);
-        _bids[auctionId][msg.sender] = bid;
-        _hasBid[auctionId][msg.sender] = true;
+        _bids[auctionId][bidderId] = bid;
+        _hasBid[auctionId][bidderId] = true;
         auction.bidderCount += 1;
 
         FHE.allowThis(auction.highestBid);
         FHE.allowThis(auction.highestBidder);
         FHE.allowThis(auction.hasWinner);
         FHE.allowThis(bid);
-        FHE.allow(bid, msg.sender);
+        FHE.allow(bid, bidderId);
         emit BidSubmitted(auctionId, euint64.unwrap(bid));
     }
 
@@ -271,6 +305,7 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
     /// @return startAt The scheduled opening timestamp.
     /// @return endAt The scheduled closing timestamp.
     /// @return minimumBid The public minimum bid in kobo.
+    /// @return bidIncrement The public bid increment in kobo.
     /// @return reservePrice The public reserve price in kobo.
     /// @return bidderCount The number of submitted encrypted bids.
     /// @return status The auction lifecycle status.
@@ -285,6 +320,7 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
             uint64 startAt,
             uint64 endAt,
             uint64 minimumBid,
+            uint64 bidIncrement,
             uint64 reservePrice,
             uint32 bidderCount,
             Status status
@@ -296,6 +332,7 @@ contract ConfidentialAutoAuction is ZamaEthereumConfig {
             auction.startAt,
             auction.endAt,
             auction.minimumBid,
+            auction.bidIncrement,
             auction.reservePrice,
             auction.bidderCount,
             auction.status

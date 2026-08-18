@@ -1,8 +1,11 @@
+import { createPseudonymousBidderId } from "./fhevm-bid";
+
 export type BidderSession = {
   name: string;
   organisation?: string;
   contact: string;
   sessionId: string;
+  bidderId: string;
   audience: "Dealer" | "Consumer";
 };
 
@@ -30,5 +33,6 @@ export function createBidderSession(input: {
     contact,
     audience: input.audience,
     sessionId: `${input.audience.toLowerCase()}-${entropy}`,
+    bidderId: createPseudonymousBidderId(),
   };
 }

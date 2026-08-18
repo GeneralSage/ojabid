@@ -160,6 +160,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .status-badge.open > span { background: var(--teal); box-shadow: 0 0 0 3px rgba(116, 218, 194, 0.15); }
 .status-badge.closing > span { background: var(--amber); }
 .status-badge.soon > span { background: #829689; }
+.status-badge.closed > span { background: #d38888; }
 .save-button { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; color: #d8e6db; background: rgba(7, 18, 13, 0.72); }
 .save-button.saved { color: var(--lime); }
 .image-reference { position: absolute; z-index: 1; right: 11px; bottom: 10px; display: inline-flex; align-items: center; gap: 4px; color: #d3e0d5; font-size: 9px; }

@@ -15,6 +15,7 @@ const consumerDocuments: AuctionDocument[] = [
 export const auctions: Auction[] = [
   {
     id: "OJ-2401",
+    onchainAuctionId: 0,
     audience: "Dealer",
     images: [
       { url: "https://www.cstatic-images.com/stock/1000x1000/78/img-954647238-1497975313078.JPG", alt: "2018 Toyota Camry XSE in dark blue, front three-quarter view", sourceLabel: "Cars.com 2018 Camry XSE gallery", sourceUrl: "https://www.cars.com/articles/2018-toyota-camry-review-exterior-photo-gallery-1420695851030/" },
@@ -38,6 +39,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2398",
+    onchainAuctionId: 1,
     audience: "Dealer",
     images: [
       { url: "https://dealerimages.dealereprocess.com/image/upload/1921855.jpg", alt: "2020 Lexus RX 350 in grey, side profile", sourceLabel: "Lexus RX 350 reference image", sourceUrl: "https://www.lexusofhighlandpark.com/cc-2020-lexus-rx-350-financing-near-lake-villa-il/" },
@@ -61,6 +63,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2404",
+    onchainAuctionId: 2,
     audience: "Dealer",
     images: [
       { url: "https://ultimatemotorcycling.com/wp-content/uploads/2022/06/2022-honda-cb500x-review-adventure-motorcycle-9.jpg", alt: "2022 Honda CB500X in green and black, side profile", sourceLabel: "Ultimate Motorcycling CB500X review", sourceUrl: "https://ultimatemotorcycling.com/2022/06/03/2022-honda-cb500x-review-16-fast-facts-adventure-motorcycle/" },
@@ -84,6 +87,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2387",
+    onchainAuctionId: 3,
     audience: "Dealer",
     images: [
       { url: "https://assets.shannons.com.au/Z7AUWU196W5DV18D/O15F3QAB4C1B506F/huikn7tvjzooy05f-30fo9fwh6zwz7qna/jpg/2400x1800x3/vehicle/2017-ford-ranger-xlt-4x4.jpg", alt: "2017 Ford Ranger XLT 4x4 in dark grey, front three-quarter view", sourceLabel: "Shannons Club 2017 Ranger XLT 4x4", sourceUrl: "https://club.shannons.com.au/club/enthusiasts/mattthewlis27/garage/2017-ford-ranger-xlt-4x4/" },
@@ -107,6 +111,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2408",
+    onchainAuctionId: 4,
     audience: "Dealer",
     images: [
       { url: "https://www.groovecar.com/stock/images/color/2019/toyota/corolla/le-4dr-sedan/2019-toyota-corolla-le-4dr-sedan-blizzard-pearl-composite-large.jpg", alt: "2019 Toyota Corolla LE shown from front, side and rear", sourceLabel: "GrooveCar 2019 Corolla LE reference", sourceUrl: "https://www.groovecar.com/research/2019/toyota/corolla/le-4dr-sedan/" },
@@ -130,6 +135,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2410",
+    onchainAuctionId: 5,
     audience: "Dealer",
     images: [
       { url: "https://file.kelleybluebookimages.com/kbb/base/evox/CP/11757/2017-Toyota-Highlander-side_11757_001_2400x1800_070.png", alt: "2017 Toyota Highlander XLE in white, side profile", sourceLabel: "Kelley Blue Book 2017 Highlander XLE", sourceUrl: "https://www.kbb.com/toyota/highlander/2017/xle-sport-utility-4d/" },
@@ -153,6 +159,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2412",
+    onchainAuctionId: 6,
     audience: "Dealer",
     images: [
       { url: "https://hasjrat-toyota.co.id/wp-content/uploads/2020/09/hilux-d-Cab-2020-banner-product.jpg", alt: "2020 Toyota Hilux double cab in front and rear views", sourceLabel: "Hasjrat Toyota Hilux double-cab reference", sourceUrl: "https://hasjrat-toyota.co.id/hilux-d-cab-g-type-spesifikasi/" },
@@ -176,6 +183,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2414",
+    onchainAuctionId: 7,
     audience: "Consumer",
     images: [
       { url: "https://file.kelleybluebookimages.com/kbb/base/evox/CP/11159/2018-Lexus-RX-side_11159_001_2400x1800_083.png", alt: "2018 Lexus RX 350 F Sport in white, side profile", sourceLabel: "Kelley Blue Book 2018 RX 350 F Sport", sourceUrl: "https://www.kbb.com/lexus/rx/2018/rx-350-f-sport-suv-4d/" },
@@ -199,6 +207,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2416",
+    onchainAuctionId: 8,
     audience: "Consumer",
     images: [
       { url: "https://tadvantage-ca.cdn-convertus.com/uploads/sites/800/2021/03/Toyota-Rav4-Hybrid-2021-Performance.jpg", alt: "2021 Toyota RAV4 in front and rear views", sourceLabel: "Leveille Toyota 2021 RAV4 gallery", sourceUrl: "https://www.leveilletoyota.com/toyota-rav4-hybride-2022/" },
@@ -222,6 +231,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2418",
+    onchainAuctionId: 9,
     audience: "Consumer",
     images: [
       { url: "https://tadvantagebetaprod-com.cdn-convertus.com/uploads/sites/392/2023/07/d9e2bb4b95999e3ac1893c6f705850dbx.jpg", alt: "2021 Honda CR-V models in a dealership showroom", sourceLabel: "Alberta Honda 2021 CR-V gallery", sourceUrl: "https://www.albertahonda.com/2021-honda-cr-v-performance/" },
@@ -245,6 +255,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2420",
+    onchainAuctionId: 10,
     audience: "Consumer",
     images: [
       { url: "https://cdn.dealerspike.com/imglib/v1/800x600/imglib/Assets/Inventory/87/30/87300BEB-111A-430F-BE0F-8AF6045F529D.jpg", alt: "2021 Yamaha MT-07 in red and black, front view", sourceLabel: "RideNow 2021 Yamaha MT-07 listing", sourceUrl: "https://www.ridenow.com/USED-Inventory-2021-Yamaha-Motorcycle-Scooter-MT-07-RideNow-Jacksonville-FL-17643117" },
@@ -268,6 +279,7 @@ export const auctions: Auction[] = [
   },
   {
     id: "OJ-2422",
+    onchainAuctionId: 11,
     audience: "Consumer",
     images: [
       { url: "https://www.mediaparts.pt/imgs/produtos/gd_WhatsApp_Image_2025_12_18_at_10.59.21_6_.jpeg", alt: "2020 Suzuki V-Strom 650 XT in blue and black", sourceLabel: "Mediaparts 2020 V-Strom 650 listing", sourceUrl: "https://www.mediaparts.pt/pt/motos-novas-usadas-usadas-suzuki-vstrom-650-2020" },

@@ -1,4 +1,4 @@
-export type AuctionStatus = "Open" | "Closing soon" | "Opening soon";
+export type AuctionStatus = "Open" | "Closing soon" | "Opening soon" | "Closed";
 export type AuctionAudience = "Dealer" | "Consumer";
 
 export type AuctionImage = {
@@ -20,6 +20,8 @@ export type VehicleDetail = {
 
 export type Auction = {
   id: string;
+  /** Numeric identifier of the corresponding confidential lot on the FHEVM contract. */
+  onchainAuctionId: number;
   audience: AuctionAudience;
   images: AuctionImage[];
   title: string;

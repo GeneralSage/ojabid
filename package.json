@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "@zama-fhe/relayer-sdk": "^0.4.1",
+    "ethers": "^6.17.0",
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
