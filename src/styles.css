@@ -72,8 +72,6 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 29px; }
 .primary-button { padding: 14px 17px; color: #13210e; background: var(--lime); font-size: 13px; }
 .quiet-button { padding: 14px 10px; color: #c7d7ca; background: transparent; font-size: 13px; }
-.preview-notice { display: flex; align-items: flex-start; gap: 8px; max-width: 600px; margin: 22px 0 0; color: #819789; font-size: 11px; line-height: 1.55; }
-.preview-notice svg { flex: 0 0 auto; margin-top: 1px; color: var(--teal); }
 
 .hero-lot { align-self: center; overflow: hidden; border: 1px solid rgba(200, 239, 118, 0.2); border-radius: 16px; background: var(--surface); box-shadow: 0 25px 90px rgba(0, 0, 0, 0.22); }
 .hero-lot-image { position: relative; height: 248px; background: #243b2d; }
@@ -183,8 +181,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .workflow-section li > span { color: var(--lime); font-size: 11px; font-weight: 750; }
 .workflow-section li strong { font-size: 14px; }
 .workflow-section li p { margin: 5px 0 0; color: #879d90; font-size: 12px; line-height: 1.55; }
-.production-truth { display: flex; align-items: flex-start; gap: 8px; max-width: 1228px; margin: 0 auto 52px; padding: 0 20px; color: #82988a; font-size: 10px; line-height: 1.55; }
-.production-truth svg { flex: 0 0 auto; margin-top: 1px; color: var(--amber); }
+.technology-note { display: flex; align-items: flex-start; gap: 8px; max-width: 1228px; margin: 0 auto 52px; padding: 0 20px; color: #82988a; font-size: 10px; line-height: 1.55; }
+.technology-note svg { flex: 0 0 auto; margin-top: 1px; color: var(--teal); }
 .site-footer { display: flex; justify-content: space-between; gap: 20px; padding: 23px clamp(20px, 5vw, 76px); border-top: 1px solid var(--line); color: #73887b; font-size: 10px; }
 .site-footer a:hover { color: var(--lime); }
 
@@ -243,8 +241,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .naira-input { display: flex; align-items: center; overflow: hidden; border: 1px solid #3c5547; border-radius: 9px; background: #0b1711; }
 .naira-input span { padding-left: 13px; color: var(--lime); font-size: 18px; font-weight: 800; }
 .naira-input input { width: 100%; padding: 12px 13px; border: 0; outline: 0; color: #eff6ef; background: transparent; }
-.offer-help, .preview-note { margin: 0; color: #7f9688; font-size: 10px; line-height: 1.5; }
-.preview-note { text-align: center; }
+.offer-help { margin: 0; color: #7f9688; font-size: 10px; line-height: 1.5; }
 .bid-error { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--danger); font-size: 11px; line-height: 1.4; }
 .drawer-primary { width: 100%; padding: 13px; color: #162410; background: var(--lime); font-size: 12px; }
 .drawer-primary.disabled { cursor: not-allowed; opacity: 0.52; }

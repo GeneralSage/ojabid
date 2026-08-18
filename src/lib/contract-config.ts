@@ -3,7 +3,7 @@ export const contractConfig = {
   chainId: Number(import.meta.env.VITE_OJABID_CHAIN_ID ?? 11155111),
   auctionAddress: import.meta.env.VITE_OJABID_AUCTION_ADDRESS ?? "",
   currency: "NGN",
-  currencySymbol: "₦",
+  currencySymbol: String.fromCodePoint(0x20a6),
 } as const;
 
 export const hasConfiguredDeployment = contractConfig.auctionAddress.length > 0;

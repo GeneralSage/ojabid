@@ -25,8 +25,8 @@ export const auctions: Auction[] = [
     endsIn: "2 hours 18 minutes",
     sealedOfferCount: 18,
     category: "Cars",
-    openingBidNaira: 18_500_000,
-    bidIncrementNaira: 50_000,
+    openingBidNaira: 24_000_000,
+    bidIncrementNaira: 100_000,
     inspectionSummary: "VIN, customs record, exterior, cabin and drive-train checks are recorded for verified dealers.",
     vehicleDetails: [
       { label: "Lot number", value: "OJ-2401" },
@@ -68,8 +68,8 @@ export const auctions: Auction[] = [
     endsIn: "6 hours 42 minutes",
     sealedOfferCount: 31,
     category: "Cars",
-    openingBidNaira: 39_000_000,
-    bidIncrementNaira: 100_000,
+    openingBidNaira: 52_000_000,
+    bidIncrementNaira: 250_000,
     inspectionSummary: "Documents, chassis condition, tyre wear and engine scan have been recorded for dealer review.",
     vehicleDetails: [
       { label: "Lot number", value: "OJ-2398" },
@@ -111,8 +111,8 @@ export const auctions: Auction[] = [
     endsIn: "1 day 4 hours",
     sealedOfferCount: 12,
     category: "Motorcycles",
-    openingBidNaira: 8_400_000,
-    bidIncrementNaira: 25_000,
+    openingBidNaira: 9_000_000,
+    bidIncrementNaira: 50_000,
     inspectionSummary: "Frame, engine, brakes and import records were inspected before this dealer auction.",
     vehicleDetails: [
       { label: "Lot number", value: "OJ-2404" },
@@ -154,8 +154,8 @@ export const auctions: Auction[] = [
     endsIn: "Registration opens tomorrow",
     sealedOfferCount: 0,
     category: "Trucks",
-    openingBidNaira: 21_000_000,
-    bidIncrementNaira: 100_000,
+    openingBidNaira: 26_000_000,
+    bidIncrementNaira: 250_000,
     inspectionSummary: "Service records, ownership documents and a pre-sale inspection are queued for dealer review.",
     vehicleDetails: [
       { label: "Lot number", value: "OJ-2387" },
